@@ -1,14 +1,13 @@
-import DreamList from "@/components/dreams/DreamList";
 import { StyleSheet, View } from "react-native";
-import { useTheme } from "tamagui";
+import { Text, useTheme } from "tamagui";
 
-export default function HomeScreen() {
+export default function SearchScreen() {
   const theme = useTheme();
   return (
     <View
       style={[styles.container, { backgroundColor: theme.background?.val }]}
     >
-      <DreamList />
+      <Text color="$color">Recherche</Text>
     </View>
   );
 }

@@ -1,18 +1,18 @@
-import DreamList from "@/components/dreams/DreamList";
+import DreamEditForm from "@/components/dreams/DreamEditForm";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "tamagui";
 
-export default function HomeScreen() {
+export default function EditDreamScreen() {
   const theme = useTheme();
   return (
     <View
       style={[styles.container, { backgroundColor: theme.background?.val }]}
     >
-      <DreamList />
+      <DreamEditForm />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1 },
 });
