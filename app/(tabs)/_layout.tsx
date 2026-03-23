@@ -2,8 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import * as Haptics from "expo-haptics";
 import { withLayoutContext } from "expo-router";
-import { Platform } from "react-native";
-import { useTheme } from "tamagui";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { Navigator } = createMaterialTopTabNavigator();
 const MaterialTopTabs = withLayoutContext(Navigator);
@@ -28,20 +27,15 @@ const TABS = [
   },
   {
     name: "stats",
-    icon: "bar-chart-outline" as IoniconName,
-    iconFocused: "bar-chart" as IoniconName,
-  },
-  {
-    name: "settings",
-    icon: "settings-outline" as IoniconName,
-    iconFocused: "settings" as IoniconName,
+    icon: "stats-chart-outline" as IoniconName,
+    iconFocused: "stats-chart" as IoniconName,
   },
 ];
 
 const haptic = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
 export default function TabLayout() {
-  const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <MaterialTopTabs
@@ -52,18 +46,21 @@ export default function TabLayout() {
         return {
           tabBarShowLabel: false,
           tabBarIndicatorStyle: { height: 0 },
+          tabBarActiveTintColor: "#9D7FEA",
+          tabBarInactiveTintColor: "#7A738C",
           tabBarStyle: {
-            backgroundColor: theme.background?.val,
-            height: Platform.select({ ios: 84, android: 64, default: 64 }),
-            paddingBottom: Platform.select({ ios: 24, android: 8, default: 8 }),
-            elevation: 0,
-            shadowOpacity: 0,
+            backgroundColor: "#10101E",
+            borderTopColor: "rgba(157,127,234,0.15)",
+            borderTopWidth: 0.5,
+            paddingBottom: insets.bottom + 4,
+            paddingTop: 8,
+            height: 56 + insets.bottom,
           },
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name={focused ? tab.iconFocused : tab.icon}
               size={26}
-              color={focused ? theme.color?.val : theme.colorPress?.val}
+              color={focused ? "#9D7FEA" : "#7A738C"}
             />
           ),
         };

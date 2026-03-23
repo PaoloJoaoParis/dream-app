@@ -1,10 +1,17 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Pencil, Trash2 } from "@tamagui/lucide-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { Pencil, Trash2 } from "@tamagui/lucide-icons";
 import { router } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Text, useTheme } from "tamagui";
+import { deleteDream, getDreams } from "./data/dreamStorage";
 
 type Dream = {
   id: string;
@@ -12,6 +19,7 @@ type Dream = {
   type: string;
   isLucid: boolean;
   tone: string;
+  emotionBefore: string;
   emotionAfter: string;
   intensity: number;
   location: string;
@@ -21,6 +29,29 @@ type Dream = {
   sleepQuality: string;
   meaning: string;
 };
+
+function Badge({
+  label,
+  highlight = false,
+}: {
+  label: string;
+  highlight?: boolean;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.badge, { backgroundColor: theme.color4?.val }]}>
+      {highlight ? (
+        <Text fontSize={11} color="$color10">
+          {label}
+        </Text>
+      ) : (
+        <Text fontSize={11} color="$color9">
+          {label}
+        </Text>
+      )}
+    </View>
+  );
+}
 
 function DreamCard({
   dream,
@@ -32,7 +63,6 @@ function DreamCard({
   onEdit: () => void;
 }) {
   const theme = useTheme();
-
   const date = new Date(dream.createdAt).toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "long",
@@ -43,32 +73,25 @@ function DreamCard({
     <View
       style={[
         styles.card,
-        {
-          backgroundColor: theme.color2?.val,
-          borderColor: theme.color4?.val,
-        },
+        { backgroundColor: theme.color2?.val, borderColor: theme.color4?.val },
       ]}
     >
       <View style={styles.cardHeader}>
-        <Text fontSize={13} color="$color9">
+        <Text fontSize={12} color="$color9">
           {date}
         </Text>
         <View style={styles.row}>
-          {dream.isLucid && (
-            <View style={[styles.badge, { backgroundColor: theme.color3?.val }]}>
-              <Text fontSize={11} color="$color10">Lucide</Text>
-            </View>
-          )}
-          {dream.type !== "" && (
-            <View style={[styles.badge, { backgroundColor: theme.color3?.val }]}>
-              <Text fontSize={11} color="$color9">{dream.type}</Text>
-            </View>
-          )}
+          <TouchableOpacity onPress={onEdit}>
+            <Pencil size={16} color={theme.color9?.val as any} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete}>
+            <Trash2 size={16} color="#ef4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
       {dream.location !== "" && (
-        <Text fontSize={15} fontWeight="600" color="$color12">
+        <Text fontSize={17} fontWeight="600" color="$color12">
           {dream.location}
         </Text>
       )}
@@ -79,26 +102,12 @@ function DreamCard({
         </Text>
       )}
 
-      {dream.tags.length > 0 && (
-        <View style={styles.tagsRow}>
-          {dream.tags.map((tag, i) => (
-            <View key={i} style={[styles.badge, { backgroundColor: theme.color4?.val }]}>
-              <Text fontSize={12} color="$color9">{tag}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionBtn} onPress={onEdit}>
-          <Pencil size={15} color={theme.color9?.val} />
-          <Text fontSize={13} color="$color9"> Modifier</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={onDelete}>
-          <Trash2 size={15} color="#ef4444" />
-          <Text fontSize={13} style={{ color: "#ef4444" }}> Supprimer</Text>
-        </TouchableOpacity>
+      <View style={styles.tagsRow}>
+        {dream.type !== "" && <Badge label={dream.type} />}
+        {dream.isLucid && <Badge label="Lucide" highlight />}
+        {dream.tags.map((tag, i) => (
+          <Badge key={i} label={tag} />
+        ))}
       </View>
     </View>
   );
@@ -112,9 +121,8 @@ export default function DreamList() {
     async function fetchDreams() {
       setLoading(true);
       try {
-        const raw = await AsyncStorage.getItem("dreamFormDataArray");
-        const data = raw ? JSON.parse(raw) : [];
-        setDreams(data.reverse());
+        const data = (await getDreams()) as Dream[];
+        setDreams([...data].reverse());
       } catch (e) {
         console.error("Erreur chargement rêves:", e);
       } finally {
@@ -126,21 +134,24 @@ export default function DreamList() {
 
   useFocusEffect(load);
 
+  const doDelete = async (id: string) => {
+    await deleteDream(id);
+    setDreams((prev) => prev.filter((d) => d.id !== id));
+  };
+
   const handleDelete = (id: string) => {
-    Alert.alert("Supprimer", "Supprimer ce rêve ?", [
-      { text: "Annuler", style: "cancel" },
-      {
-        text: "Supprimer",
-        style: "destructive",
-        onPress: async () => {
-          const raw = await AsyncStorage.getItem("dreamFormDataArray");
-          const data = raw ? JSON.parse(raw) : [];
-          const updated = data.filter((d: Dream) => d.id !== id);
-          await AsyncStorage.setItem("dreamFormDataArray", JSON.stringify(updated));
-          setDreams((prev) => prev.filter((d) => d.id !== id));
+    if (Platform.OS === "web") {
+      if (window.confirm("Supprimer ce rêve ?")) doDelete(id);
+    } else {
+      Alert.alert("Supprimer", "Supprimer ce rêve ?", [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: () => doDelete(id),
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   if (loading) {
@@ -154,8 +165,12 @@ export default function DreamList() {
   if (dreams.length === 0) {
     return (
       <View style={styles.centered}>
-        <Text fontSize={32}>🌙</Text>
-        <Text color="$color9">Aucun rêve enregistré</Text>
+        <Text fontSize={17} fontWeight="600" color="$color12">
+          Aucun rêve
+        </Text>
+        <Text fontSize={14} color="$color9">
+          Tes rêves apparaîtront ici
+        </Text>
       </View>
     );
   }
@@ -163,12 +178,22 @@ export default function DreamList() {
   return (
     <ScrollView>
       <View style={styles.list}>
+        <Text
+          fontSize={28}
+          fontWeight="700"
+          color="$color12"
+          style={{ paddingBottom: 4 }}
+        >
+          Mes rêves
+        </Text>
         {dreams.map((dream) => (
           <DreamCard
             key={dream.id}
             dream={dream}
             onDelete={() => handleDelete(dream.id)}
-            onEdit={() => router.push({ pathname: "/editDream", params: { id: dream.id } })}
+            onEdit={() =>
+              router.push({ pathname: "/editDream", params: { id: dream.id } })
+            }
           />
         ))}
       </View>
@@ -177,13 +202,20 @@ export default function DreamList() {
 }
 
 const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", gap: 8 },
-  list: { padding: 16, gap: 12 },
-  card: { borderRadius: 12, padding: 16, gap: 8, borderWidth: 1 },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  row: { flexDirection: "row", gap: 8 },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  list: { padding: 20, gap: 12 },
+  card: { borderRadius: 16, padding: 18, gap: 10, borderWidth: 1 },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  row: { flexDirection: "row", gap: 16, alignItems: "center" },
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 99 },
-  tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  actions: { flexDirection: "row", justifyContent: "flex-end", gap: 16, marginTop: 4 },
-  actionBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
+  tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
 });
