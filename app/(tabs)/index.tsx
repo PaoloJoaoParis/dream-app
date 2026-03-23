@@ -7,11 +7,29 @@ import {
 } from "@/components/dreams/dreamStorage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
-import { Alert, Modal, Platform, StyleSheet, View } from "react-native";
-import { useTheme } from "tamagui";
+import {
+  Alert,
+  Modal,
+  Platform,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme, YStack } from "tamagui";
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const isPhone = width < 600;
+  const isTablet = width >= 600 && width < 1024;
+  const isDesktop = width >= 1024;
+
+  void isPhone;
+  void insets;
+
   const [dreams, setDreams] = useState<Dream[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalMode, setModalMode] = useState<"edit" | null>(null);
@@ -78,12 +96,22 @@ export default function HomeScreen() {
     <View
       style={[styles.container, { backgroundColor: theme.background?.val }]}
     >
-      <DreamList
-        dreams={dreams}
-        loading={loading}
-        onEdit={openEdit}
-        onDelete={handleDelete}
-      />
+      <YStack
+        flex={1}
+        style={{
+          width: "100%",
+          maxWidth: isDesktop ? 800 : isTablet ? 680 : undefined,
+          alignSelf: isDesktop || isTablet ? "center" : undefined,
+          paddingTop: insets.top + 12,
+        }}
+      >
+        <DreamList
+          dreams={dreams}
+          loading={loading}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+        />
+      </YStack>
 
       <Modal visible={modalMode !== null} animationType="slide">
         <View

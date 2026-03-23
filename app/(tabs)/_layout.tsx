@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import * as Haptics from "expo-haptics";
 import { withLayoutContext } from "expo-router";
-import { Platform } from "react-native";
+import { useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "tamagui";
 
 const { Navigator } = createMaterialTopTabNavigator();
@@ -42,6 +43,16 @@ const haptic = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
 export default function TabLayout() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const isPhone = width < 600;
+  const isTablet = width >= 600 && width < 1024;
+  const isDesktop = width >= 1024;
+
+  void isPhone;
+  void isTablet;
+  void isDesktop;
 
   return (
     <MaterialTopTabs
@@ -54,8 +65,8 @@ export default function TabLayout() {
           tabBarIndicatorStyle: { height: 0 },
           tabBarStyle: {
             backgroundColor: theme.background?.val,
-            height: Platform.select({ ios: 84, android: 64, default: 64 }),
-            paddingBottom: Platform.select({ ios: 24, android: 8, default: 8 }),
+            height: 52 + insets.bottom,
+            paddingBottom: insets.bottom + 4,
             elevation: 0,
             shadowOpacity: 0,
           },

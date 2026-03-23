@@ -1,7 +1,8 @@
 import { X } from "@tamagui/lucide-icons";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Input, Slider, Text, TextArea, XStack, YStack } from "tamagui";
 
 export type Dream = {
@@ -191,6 +192,10 @@ export default function DreamForm({
   onSubmit,
   onCancel,
 }: DreamFormProps) {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isPhone = width < 600;
+
   const now = new Date();
   const [step, setStep] = useState(0);
 
@@ -385,8 +390,21 @@ export default function DreamForm({
   };
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-      <YStack flex={1} gap="$5" style={{ padding: 16 }}>
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 24 }}
+    >
+      <YStack
+        flex={1}
+        gap="$5"
+        style={{
+          width: "100%",
+          maxWidth: isPhone ? undefined : 520,
+          alignSelf: isPhone ? undefined : "center",
+          paddingHorizontal: isPhone ? 12 : 16,
+          paddingTop: 16,
+          paddingBottom: 16,
+        }}
+      >
         <YStack gap="$3">
           <Text fontSize={22} fontWeight="700" color="$color12">
             {STEP_TITLES[step]}

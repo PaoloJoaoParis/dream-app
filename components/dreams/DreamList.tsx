@@ -1,5 +1,12 @@
 import { Pencil, Trash2 } from "@tamagui/lucide-icons";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text, useTheme } from "tamagui";
 
 type Dream = {
@@ -144,6 +151,15 @@ export default function DreamList({
   onEdit: (dream: Dream) => void;
   onDelete: (id: string) => void;
 }) {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const isPhone = width < 600;
+  const isTablet = width >= 600 && width < 1024;
+  const isDesktop = width >= 1024;
+
+  const horizontalPadding = isDesktop ? 0 : isTablet ? 24 : 14;
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -162,24 +178,34 @@ export default function DreamList({
   }
 
   return (
-    <ScrollView>
-      <View style={styles.list}>
-        {dreams.map((dream) => (
-          <DreamCard
-            key={dream.id}
-            dream={dream}
-            onDelete={onDelete}
-            onEdit={onEdit}
-          />
-        ))}
-      </View>
-    </ScrollView>
+    <FlatList
+      data={dreams}
+      key={isPhone ? "single" : "double"}
+      numColumns={isPhone ? 1 : 2}
+      keyExtractor={(dream) => dream.id}
+      renderItem={({ item }) => (
+        <View style={isPhone ? undefined : styles.columnItem}>
+          <DreamCard dream={item} onDelete={onDelete} onEdit={onEdit} />
+        </View>
+      )}
+      columnWrapperStyle={!isPhone ? styles.columnWrap : undefined}
+      contentContainerStyle={[
+        styles.list,
+        {
+          paddingTop: 10,
+          paddingBottom: insets.bottom + 24,
+          paddingHorizontal: horizontalPadding,
+        },
+      ]}
+    />
   );
 }
 
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: "center", alignItems: "center", gap: 8 },
-  list: { padding: 16, gap: 12 },
+  list: { gap: 12 },
+  columnWrap: { gap: 12 },
+  columnItem: { flex: 1 },
   card: { borderRadius: 12, padding: 16, gap: 8, borderWidth: 1 },
   cardHeader: {
     flexDirection: "row",

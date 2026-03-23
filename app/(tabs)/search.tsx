@@ -3,8 +3,15 @@ import { loadDreams, migrateDream } from "@/components/dreams/dreamStorage";
 import { useFocusEffect } from "@react-navigation/native";
 import { Check, SlidersHorizontal } from "@tamagui/lucide-icons";
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, Modal, StyleSheet, View } from "react-native";
-import { Button, Input, Text, XStack, YStack, useTheme } from "tamagui";
+import {
+  FlatList,
+  Modal,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Button, Input, Text, useTheme, XStack, YStack } from "tamagui";
 
 const TYPE_OPTIONS = [
   "lucide",
@@ -207,6 +214,13 @@ function ResultCard({
 
 export default function SearchScreen() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const isPhone = width < 600;
+  const isTablet = width >= 600 && width < 1024;
+  const isDesktop = width >= 1024;
+  const horizontalPadding = isDesktop ? 0 : isTablet ? 24 : 14;
 
   const [dreams, setDreams] = useState<Dream[]>([]);
   const [query, setQuery] = useState("");
@@ -307,69 +321,100 @@ export default function SearchScreen() {
     <View
       style={[styles.container, { backgroundColor: theme.background?.val }]}
     >
-      <YStack style={styles.screenContent}>
-        <Input
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Rechercher un rêve"
-        />
+      <YStack
+        flex={1}
+        style={{
+          width: "100%",
+          maxWidth: isDesktop ? 800 : isTablet ? 680 : undefined,
+          alignSelf: isDesktop || isTablet ? "center" : undefined,
+        }}
+      >
+        <YStack
+          style={[
+            styles.screenContent,
+            {
+              paddingTop: insets.top + 12,
+              paddingHorizontal: horizontalPadding,
+            },
+          ]}
+        >
+          <Input
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Rechercher un rêve"
+          />
 
-        <XStack style={styles.actionsRow}>
-          <Button
-            icon={SlidersHorizontal}
-            onPress={openFilters}
-            style={styles.filtersButton}
-          >
-            Filtres
-            {activeFilterCount > 0 ? (
-              <View
-                style={[
-                  styles.countBadge,
-                  { backgroundColor: theme.color10?.val },
-                ]}
-              >
-                <Text fontSize={11} color="$color1" fontWeight="700">
-                  {activeFilterCount}
-                </Text>
-              </View>
-            ) : null}
-          </Button>
-
-          <Button
-            style={styles.sortButton}
-            onPress={() => setSortModalVisible(true)}
-          >
-            {SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? "Tri"}
-          </Button>
-        </XStack>
-
-        <XStack style={styles.summaryRow}>
-          <Text color="$color9">{results.length} rêve(s)</Text>
-          {hasFilter ? (
-            <Button onPress={resetAll}>
-              <Text color="$color10">Réinitialiser</Text>
+          <XStack style={styles.actionsRow}>
+            <Button
+              icon={SlidersHorizontal}
+              onPress={openFilters}
+              style={styles.filtersButton}
+            >
+              Filtres
+              {activeFilterCount > 0 ? (
+                <View
+                  style={[
+                    styles.countBadge,
+                    { backgroundColor: theme.color10?.val },
+                  ]}
+                >
+                  <Text fontSize={11} color="$color1" fontWeight="700">
+                    {activeFilterCount}
+                  </Text>
+                </View>
+              ) : null}
             </Button>
-          ) : null}
-        </XStack>
 
-        {results.length === 0 ? (
-          <YStack style={styles.emptyState}>
-            <Text fontSize={32}>🌙</Text>
-            <Text color="$color9">Aucun rêve ne correspond</Text>
+            <Button
+              style={styles.sortButton}
+              onPress={() => setSortModalVisible(true)}
+            >
+              {SORT_OPTIONS.find((s) => s.key === sortKey)?.label ?? "Tri"}
+            </Button>
+          </XStack>
+
+          <XStack style={styles.summaryRow}>
+            <Text color="$color9">{results.length} rêve(s)</Text>
             {hasFilter ? (
               <Button onPress={resetAll}>
-                <Text color="$color10">Effacer les filtres</Text>
+                <Text color="$color10">Réinitialiser</Text>
               </Button>
             ) : null}
-          </YStack>
-        ) : (
-          <FlatList
-            data={results}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.list}
-            renderItem={({ item }) => <ResultCard dream={item} theme={theme} />}
-          />
-        )}
+          </XStack>
+
+          {results.length === 0 ? (
+            <YStack style={styles.emptyState}>
+              <Text fontSize={32}>🌙</Text>
+              <Text color="$color9">Aucun rêve ne correspond</Text>
+              {hasFilter ? (
+                <Button onPress={resetAll}>
+                  <Text color="$color10">Effacer les filtres</Text>
+                </Button>
+              ) : null}
+            </YStack>
+          ) : (
+            <FlatList
+              data={results}
+              key={isPhone ? "single" : "double"}
+              numColumns={isPhone ? 1 : 2}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={[
+                styles.list,
+                {
+                  paddingTop: 6,
+                  paddingBottom: insets.bottom + 24,
+                  paddingHorizontal: 2,
+                },
+              ]}
+              columnWrapperStyle={!isPhone ? styles.columnWrap : undefined}
+              renderItem={({ item }) => (
+                <View style={isPhone ? undefined : styles.columnItem}>
+                  <ResultCard dream={item} theme={theme} />
+                </View>
+              )}
+            />
+          )}
+        </YStack>
       </YStack>
 
       <Modal
@@ -503,6 +548,12 @@ const styles = StyleSheet.create({
   list: {
     gap: 10,
     paddingBottom: 20,
+  },
+  columnWrap: {
+    gap: 12,
+  },
+  columnItem: {
+    flex: 1,
   },
   screenContent: {
     flex: 1,
