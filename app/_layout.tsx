@@ -5,7 +5,7 @@ import {
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { useColorScheme } from "react-native";
-import { TamaguiProvider } from "tamagui";
+import { PortalProvider, TamaguiProvider } from "tamagui";
 import { tamaguiConfig } from "../tamagui.config";
 
 export default function RootLayout() {
@@ -17,19 +17,21 @@ export default function RootLayout() {
       config={tamaguiConfig}
       defaultTheme={dark ? "dark" : "light"}
     >
-      <ThemeProvider value={dark ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="addDream"
-            options={{ presentation: "modal", headerShown: false }}
-          />
-          <Stack.Screen
-            name="editDream"
-            options={{ presentation: "modal", headerShown: false }}
-          />
-        </Stack>
-      </ThemeProvider>
+      <PortalProvider>
+        <ThemeProvider value={dark ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="addDream"
+              options={{ presentation: "modal", headerShown: false }}
+            />
+            <Stack.Screen
+              name="editDream"
+              options={{ presentation: "modal", headerShown: false }}
+            />
+          </Stack>
+        </ThemeProvider>
+      </PortalProvider>
     </TamaguiProvider>
   );
 }

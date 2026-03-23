@@ -1,99 +1,34 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Check, ChevronLeft, ChevronRight, X } from "@tamagui/lucide-icons";
-import { useRouter } from "expo-router";
+import { X } from "@tamagui/lucide-icons";
+import type { ReactNode } from "react";
 import { useState } from "react";
-import { Alert, ScrollView } from "react-native";
-import uuid from "react-native-uuid";
-import {
-  Button,
-  Checkbox,
-  Input,
-  Label,
-  Slider,
-  Text,
-  XStack,
-  YStack,
-} from "tamagui";
+import { ScrollView } from "react-native";
+import { Button, Input, Slider, Text, TextArea, XStack, YStack } from "tamagui";
 
-/* ───────── TAG INPUT ───────── */
+export type Dream = {
+  id: string;
+  createdAt: string;
+  title: string;
+  meaning: string;
+  type: string;
+  isLucid: boolean;
+  emotionBefore: string;
+  emotionAfter: string;
+  tone: string;
+  intensity: number;
+  clarity: number;
+  sleepQuality: number;
+  location: string;
+  characters: string[];
+  tags: string[];
+};
 
-function TagInput({ tags, setTags, placeholder }) {
-  const [text, setText] = useState("");
+type DreamFormProps = {
+  initialValues?: Dream;
+  onSubmit: (dream: Dream) => void;
+  onCancel: () => void;
+};
 
-  const addTag = () => {
-    const trimmed = text.trim();
-    if (trimmed && !tags.includes(trimmed)) {
-      setTags([...tags, trimmed]);
-      setText("");
-    }
-  };
-
-  const removeTag = (index) => {
-    setTags(tags.filter((_, i) => i !== index));
-  };
-
-  return (
-    <YStack gap="$2">
-      {tags.length > 0 && (
-        <XStack flexWrap="wrap" gap="$2">
-          {tags.map((tag, i) => (
-            <XStack
-              key={i}
-              backgroundColor="$color4"
-              paddingHorizontal="$3"
-              paddingVertical="$1.5"
-              borderRadius="$10"
-              alignItems="center"
-              gap="$2"
-            >
-              <Text fontSize={13} color="$color11">
-                {tag}
-              </Text>
-              <X size={14} color="$color9" onPress={() => removeTag(i)} />
-            </XStack>
-          ))}
-        </XStack>
-      )}
-      <Input
-        placeholder={placeholder}
-        value={text}
-        onChangeText={setText}
-        onSubmitEditing={addTag}
-        returnKeyType="done"
-      />
-    </YStack>
-  );
-}
-
-/* ───────── TOGGLE GROUP ───────── */
-
-function ToggleGroup({ options, value, onChange }) {
-  return (
-    <XStack flexWrap="wrap" gap="$2">
-      {options.map((opt) => {
-        const selected = value === opt.value;
-        return (
-          <Button
-            key={opt.value}
-            size="$3"
-            borderRadius="$10"
-            backgroundColor={selected ? "$color4" : "transparent"}
-            borderWidth={1}
-            borderColor={selected ? "$color8" : "$color5"}
-            color={selected ? "$color12" : "$color9"}
-            onPress={() => onChange(opt.value)}
-          >
-            {opt.label}
-          </Button>
-        );
-      })}
-    </XStack>
-  );
-}
-
-/* ───────── SECTION LABEL ───────── */
-
-function SectionLabel({ children }) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <Text
       fontSize={13}
@@ -106,338 +41,391 @@ function SectionLabel({ children }) {
   );
 }
 
-/* ───────── STEP 1 : TYPE ───────── */
-
-const DREAM_TYPES = [
-  { value: "ordinaire", label: "Ordinaire" },
-  { value: "cauchemar", label: "Cauchemar" },
-  { value: "recurrent", label: "Récurrent" },
-  { value: "premonitoire", label: "Prémonitoire" },
-  { value: "eveille", label: "Rêve éveillé" },
-];
-
-function StepType({ data, setData }) {
+function ToggleGroup({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
-    <YStack gap="$4">
-      <YStack gap="$2">
-        <SectionLabel>Type de rêve</SectionLabel>
-        <ToggleGroup
-          options={DREAM_TYPES}
-          value={data.type}
-          onChange={(val) => setData({ ...data, type: val })}
-        />
-      </YStack>
+    <XStack flexWrap="wrap" gap="$2">
+      {options.map((opt) => {
+        const selected = value === opt.value;
+        return (
+          <Button
+            key={opt.value}
+            size="$3"
+            background={selected ? "$color4" : "transparent"}
+            style={{
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: selected ? "$color8" : "$color5",
+            }}
+            onPress={() => onChange(opt.value)}
+          >
+            {opt.label}
+          </Button>
+        );
+      })}
+    </XStack>
+  );
+}
 
-      <XStack alignItems="center" gap="$3">
-        <Checkbox
-          id="lucid"
-          checked={data.isLucid}
-          onCheckedChange={(val) => setData({ ...data, isLucid: !!val })}
-          size="$4"
-        >
-          <Checkbox.Indicator>
-            <Check size={16} />
-          </Checkbox.Indicator>
-        </Checkbox>
-        <Label htmlFor="lucid" fontSize={15}>
-          Rêve lucide
-        </Label>
+function ScaleSelector({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <YStack gap="$2">
+      <Slider
+        value={[value]}
+        onValueChange={(val) => onChange(val[0])}
+        min={1}
+        max={5}
+        step={1}
+        size="$3"
+      >
+        <Slider.Track>
+          <Slider.TrackActive />
+        </Slider.Track>
+        <Slider.Thumb index={0} circular size="$1.5" />
+      </Slider>
+      <Text fontSize={12} color="$color9">
+        {value}/5
+      </Text>
+    </YStack>
+  );
+}
+
+function ListInput({
+  values,
+  setValues,
+  placeholder,
+}: {
+  values: string[];
+  setValues: (values: string[]) => void;
+  placeholder: string;
+}) {
+  const [text, setText] = useState("");
+
+  const addValue = () => {
+    const trimmed = text.trim();
+    if (trimmed && !values.includes(trimmed)) {
+      setValues([...values, trimmed]);
+      setText("");
+    }
+  };
+
+  const removeValue = (index: number) => {
+    setValues(values.filter((_, i) => i !== index));
+  };
+
+  return (
+    <YStack gap="$2">
+      {values.length > 0 && (
+        <XStack flexWrap="wrap" gap="$2">
+          {values.map((value, i) => (
+            <XStack
+              key={`${value}-${i}`}
+              gap="$2"
+              style={{
+                backgroundColor: "$color4",
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                alignItems: "center",
+              }}
+            >
+              <Text fontSize={13} color="$color11">
+                {value}
+              </Text>
+              <X size={14} color="$color9" onPress={() => removeValue(i)} />
+            </XStack>
+          ))}
+        </XStack>
+      )}
+      <XStack gap="$2">
+        <Input
+          flex={1}
+          placeholder={placeholder}
+          value={text}
+          onChangeText={setText}
+          onSubmitEditing={addValue}
+          returnKeyType="done"
+        />
+        <Button onPress={addValue}>Ajouter</Button>
       </XStack>
     </YStack>
   );
 }
 
-/* ───────── STEP 2 : CONTEXTE ───────── */
-
-function StepContext({ data, setData }) {
-  return (
-    <YStack gap="$4">
-      <YStack gap="$2">
-        <SectionLabel>Personnages</SectionLabel>
-        <TagInput
-          tags={data.characters}
-          setTags={(val) => setData({ ...data, characters: val })}
-          placeholder="Ajouter un personnage + Entrée"
-        />
-      </YStack>
-
-      <YStack gap="$2">
-        <SectionLabel>Lieu</SectionLabel>
-        <Input
-          placeholder="Lieu du rêve"
-          value={data.location}
-          onChangeText={(val) => setData({ ...data, location: val })}
-        />
-      </YStack>
-
-      <YStack gap="$2">
-        <SectionLabel>Tags</SectionLabel>
-        <TagInput
-          tags={data.tags}
-          setTags={(val) => setData({ ...data, tags: val })}
-          placeholder="Ajouter un tag + Entrée"
-        />
-      </YStack>
-    </YStack>
-  );
-}
-
-/* ───────── STEP 3 : ÉMOTIONS ───────── */
-
-const EMOTIONS = [
-  { value: "peur", label: "Peur" },
-  { value: "tristesse", label: "Tristesse" },
-  { value: "joie", label: "Joie" },
+const DREAM_TYPES = [
+  { value: "lucide", label: "Lucide" },
+  { value: "ordinaire", label: "Ordinaire" },
+  { value: "cauchemar", label: "Cauchemar" },
+  { value: "récurrent", label: "Récurrent" },
+  { value: "prophétique", label: "Prophétique" },
 ];
-
-function StepEmotion({ data, setData }) {
-  return (
-    <YStack gap="$4">
-      <YStack gap="$2">
-        <SectionLabel>Émotion avant le rêve</SectionLabel>
-        <ToggleGroup
-          options={EMOTIONS}
-          value={data.emotionBefore}
-          onChange={(val) => setData({ ...data, emotionBefore: val })}
-        />
-      </YStack>
-
-      <YStack gap="$2">
-        <SectionLabel>Émotion après le rêve</SectionLabel>
-        <ToggleGroup
-          options={EMOTIONS}
-          value={data.emotionAfter}
-          onChange={(val) => setData({ ...data, emotionAfter: val })}
-        />
-      </YStack>
-
-      <YStack gap="$2">
-        <SectionLabel>
-          Intensité émotionnelle ({data.intensity}/10)
-        </SectionLabel>
-        <Slider
-          value={[data.intensity]}
-          onValueChange={(val) => setData({ ...data, intensity: val[0] })}
-          min={1}
-          max={10}
-          step={1}
-          size="$3"
-        >
-          <Slider.Track>
-            <Slider.TrackActive />
-          </Slider.Track>
-          <Slider.Thumb index={0} circular size="$1.5" />
-        </Slider>
-      </YStack>
-    </YStack>
-  );
-}
-
-/* ───────── STEP 4 : SOMMEIL & CLARTÉ ───────── */
-
-const QUALITY_OPTIONS = [
-  { value: "mauvaise", label: "Mauvaise" },
-  { value: "moyenne", label: "Moyenne" },
-  { value: "bonne", label: "Bonne" },
-];
-
-const CLARITY_OPTIONS = [
-  { value: "floue", label: "Floue" },
-  { value: "partielle", label: "Partielle" },
-  { value: "claire", label: "Claire" },
-];
-
-function StepMeaning({ data, setData }) {
-  return (
-    <YStack gap="$4">
-      <YStack gap="$2">
-        <SectionLabel>Qualité du sommeil</SectionLabel>
-        <ToggleGroup
-          options={QUALITY_OPTIONS}
-          value={data.sleepQuality}
-          onChange={(val) => setData({ ...data, sleepQuality: val })}
-        />
-      </YStack>
-
-      <YStack gap="$2">
-        <SectionLabel>Clarté du rêve</SectionLabel>
-        <ToggleGroup
-          options={CLARITY_OPTIONS}
-          value={data.clarity}
-          onChange={(val) => setData({ ...data, clarity: val })}
-        />
-      </YStack>
-
-      <YStack gap="$2">
-        <SectionLabel>Signification personnelle</SectionLabel>
-        <Input
-          placeholder="Ce que ce rêve signifie pour toi..."
-          value={data.meaning}
-          onChangeText={(val) => setData({ ...data, meaning: val })}
-        />
-      </YStack>
-    </YStack>
-  );
-}
-
-/* ───────── STEP 5 : TONALITÉ ───────── */
 
 const TONE_OPTIONS = [
-  { value: "negative", label: "Négative" },
-  { value: "neutral", label: "Neutre" },
   { value: "positive", label: "Positive" },
+  { value: "négative", label: "Négative" },
+  { value: "neutre", label: "Neutre" },
 ];
-
-function StepTone({ data, setData }) {
-  return (
-    <YStack gap="$2">
-      <SectionLabel>Tonalité du rêve</SectionLabel>
-      <ToggleGroup
-        options={TONE_OPTIONS}
-        value={data.tone}
-        onChange={(val) => setData({ ...data, tone: val })}
-      />
-    </YStack>
-  );
-}
-
-/* ───────── PROGRESS DOTS ───────── */
-
-function ProgressDots({ current, total }) {
-  return (
-    <XStack gap="$2" justifyContent="center">
-      {Array.from({ length: total }).map((_, i) => (
-        <YStack
-          key={i}
-          width={i === current ? 24 : 8}
-          height={8}
-          borderRadius={4}
-          backgroundColor={i === current ? "$color10" : "$color5"}
-        />
-      ))}
-    </XStack>
-  );
-}
-
-/* ───────── TITRES DES ÉTAPES ───────── */
 
 const STEP_TITLES = [
-  "Type de rêve",
-  "Contexte",
-  "Émotions",
-  "Sommeil & Clarté",
-  "Tonalité",
+  "Quand & Quoi",
+  "Ressenti",
+  "Décor & Personnages",
+  "Signification",
 ];
 
-const INITIAL_FORM_DATA = {
-  type: "",
-  isLucid: false,
-  emotionBefore: "",
-  emotionAfter: "",
-  characters: [],
-  location: "",
-  intensity: 5,
-  clarity: "",
-  tags: [],
-  sleepQuality: "",
-  meaning: "",
-  tone: "neutral",
-};
-
-/* ───────── FORMULAIRE PRINCIPAL ───────── */
-
-export default function DreamForm() {
-  const router = useRouter();
+export default function DreamForm({
+  initialValues,
+  onSubmit,
+  onCancel,
+}: DreamFormProps) {
+  const now = new Date();
   const [step, setStep] = useState(0);
-  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
-  const [isSaving, setIsSaving] = useState(false);
 
-  const steps = [StepType, StepContext, StepEmotion, StepMeaning, StepTone];
-  const CurrentStep = steps[step];
-  const isLast = step === steps.length - 1;
+  const [date, setDate] = useState(
+    initialValues
+      ? new Date(initialValues.createdAt).toISOString().slice(0, 10)
+      : now.toISOString().slice(0, 10),
+  );
+  const [time, setTime] = useState(
+    initialValues
+      ? new Date(initialValues.createdAt).toTimeString().slice(0, 5)
+      : now.toTimeString().slice(0, 5),
+  );
+  const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [meaning, setMeaning] = useState(initialValues?.meaning ?? "");
+  const [type, setType] = useState(initialValues?.type ?? "ordinaire");
+  const [tone, setTone] = useState(initialValues?.tone ?? "neutre");
+  const [emotionBefore, setEmotionBefore] = useState(
+    initialValues?.emotionBefore ?? "",
+  );
+  const [emotionAfter, setEmotionAfter] = useState(
+    initialValues?.emotionAfter ?? "",
+  );
+  const [intensity, setIntensity] = useState(initialValues?.intensity ?? 3);
+  const [clarity, setClarity] = useState(initialValues?.clarity ?? 3);
+  const [sleepQuality, setSleepQuality] = useState(
+    initialValues?.sleepQuality ?? 3,
+  );
+  const [location, setLocation] = useState(initialValues?.location ?? "");
+  const [characters, setCharacters] = useState<string[]>(
+    initialValues?.characters ?? [],
+  );
+  const [tags, setTags] = useState<string[]>(initialValues?.tags ?? []);
 
-  const next = () => {
-    if (!isLast) setStep(step + 1);
+  const handleSubmit = () => {
+    const createdAt = (() => {
+      try {
+        return new Date(`${date}T${time}:00`).toISOString();
+      } catch {
+        return new Date().toISOString();
+      }
+    })();
+
+    onSubmit({
+      id: initialValues?.id ?? Date.now().toString(),
+      isLucid: type === "lucide",
+      createdAt,
+      title,
+      meaning,
+      type,
+      tone,
+      emotionBefore,
+      emotionAfter,
+      intensity,
+      clarity,
+      sleepQuality,
+      location,
+      characters,
+      tags,
+    });
   };
 
-  const back = () => {
-    if (step > 0) setStep(step - 1);
-  };
+  const renderStep = () => {
+    if (step === 0) {
+      return (
+        <YStack gap="$4">
+          <YStack gap="$2">
+            <SectionLabel>Date et heure</SectionLabel>
+            <XStack gap="$2">
+              <Input
+                flex={2}
+                value={date}
+                onChangeText={setDate}
+                placeholder="YYYY-MM-DD"
+              />
+              <Input
+                flex={1}
+                value={time}
+                onChangeText={setTime}
+                placeholder="HH:MM"
+              />
+            </XStack>
+          </YStack>
 
-  const handleSubmit = async () => {
-    setIsSaving(true);
-    try {
-      // Récupérer le tableau actuel depuis AsyncStorage
-      const existingData = await AsyncStorage.getItem("dreamFormDataArray");
-      const formDataArray = existingData ? JSON.parse(existingData) : [];
+          <YStack gap="$2">
+            <SectionLabel>Titre</SectionLabel>
+            <Input
+              placeholder="Titre court"
+              value={title}
+              onChangeText={setTitle}
+            />
+          </YStack>
 
-      // Créer l'objet du rêve avec toutes les données du formulaire
-      const dreamEntry = {
-        id: uuid.v4(),
-        createdAt: new Date().toISOString(),
-        ...formData,
-      };
+          <YStack gap="$2">
+            <SectionLabel>Type</SectionLabel>
+            <ToggleGroup
+              options={DREAM_TYPES}
+              value={type}
+              onChange={setType}
+            />
+          </YStack>
 
-      // Ajouter au tableau et sauvegarder
-      formDataArray.push(dreamEntry);
-      await AsyncStorage.setItem(
-        "dreamFormDataArray",
-        JSON.stringify(formDataArray),
+          <YStack gap="$2">
+            <SectionLabel>Tonalité</SectionLabel>
+            <ToggleGroup
+              options={TONE_OPTIONS}
+              value={tone}
+              onChange={setTone}
+            />
+          </YStack>
+        </YStack>
       );
-
-      console.log("Rêve sauvegardé:", dreamEntry);
-
-      // Réinitialiser le formulaire et quitter
-      setFormData(INITIAL_FORM_DATA);
-      setStep(0);
-      router.replace("/");
-    } catch (error) {
-      console.error("Erreur lors de la sauvegarde:", error);
-      Alert.alert("Erreur", "Impossible de sauvegarder le rêve.");
-    } finally {
-      setIsSaving(false);
     }
+
+    if (step === 1) {
+      return (
+        <YStack gap="$4">
+          <YStack gap="$2">
+            <SectionLabel>Émotion avant</SectionLabel>
+            <Input value={emotionBefore} onChangeText={setEmotionBefore} />
+          </YStack>
+
+          <YStack gap="$2">
+            <SectionLabel>Émotion après</SectionLabel>
+            <Input value={emotionAfter} onChangeText={setEmotionAfter} />
+          </YStack>
+
+          <YStack gap="$2">
+            <SectionLabel>Intensité 1→5</SectionLabel>
+            <ScaleSelector value={intensity} onChange={setIntensity} />
+          </YStack>
+
+          <YStack gap="$2">
+            <SectionLabel>Clarté 1→5</SectionLabel>
+            <ScaleSelector value={clarity} onChange={setClarity} />
+          </YStack>
+
+          <YStack gap="$2">
+            <SectionLabel>Qualité du sommeil 1→5</SectionLabel>
+            <ScaleSelector value={sleepQuality} onChange={setSleepQuality} />
+          </YStack>
+        </YStack>
+      );
+    }
+
+    if (step === 2) {
+      return (
+        <YStack gap="$4">
+          <YStack gap="$2">
+            <SectionLabel>Lieu</SectionLabel>
+            <Input
+              value={location}
+              onChangeText={setLocation}
+              placeholder="Lieu"
+            />
+          </YStack>
+
+          <YStack gap="$2">
+            <SectionLabel>Personnages</SectionLabel>
+            <ListInput
+              values={characters}
+              setValues={setCharacters}
+              placeholder="Ajouter un personnage"
+            />
+          </YStack>
+
+          <YStack gap="$2">
+            <SectionLabel>Tags</SectionLabel>
+            <ListInput
+              values={tags}
+              setValues={setTags}
+              placeholder="Ajouter un tag"
+            />
+          </YStack>
+        </YStack>
+      );
+    }
+
+    return (
+      <YStack gap="$4">
+        <YStack gap="$2">
+          <SectionLabel>Signification personnelle</SectionLabel>
+          <TextArea
+            numberOfLines={6}
+            value={meaning}
+            onChangeText={setMeaning}
+            placeholder="Signification personnelle"
+          />
+        </YStack>
+      </YStack>
+    );
   };
 
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-      <YStack flex={1} padding="$4" gap="$5">
-        {/* En-tête */}
+      <YStack flex={1} gap="$5" style={{ padding: 16 }}>
         <YStack gap="$3">
           <Text fontSize={22} fontWeight="700" color="$color12">
             {STEP_TITLES[step]}
           </Text>
-          <ProgressDots current={step} total={steps.length} />
+          <XStack gap="$2" style={{ justifyContent: "center" }}>
+            {[0, 1, 2, 3].map((i) => (
+              <YStack
+                key={i}
+                width={i === step ? 20 : 6}
+                height={6}
+                style={{
+                  borderRadius: 999,
+                  backgroundColor: i === step ? "$purple8" : "$borderColor",
+                }}
+              />
+            ))}
+          </XStack>
         </YStack>
 
-        {/* Contenu de l'étape */}
-        <YStack flex={1}>
-          <CurrentStep data={formData} setData={setFormData} />
-        </YStack>
+        <YStack flex={1}>{renderStep()}</YStack>
 
-        {/* Navigation */}
-        <XStack gap="$3" justifyContent="space-between">
-          {step > 0 ? (
-            <Button
-              flex={1}
-              variant="outlined"
-              icon={ChevronLeft}
-              onPress={back}
-            >
-              Retour
-            </Button>
-          ) : (
-            <YStack flex={1} />
-          )}
-
+        <XStack gap="$3" style={{ paddingTop: 16 }}>
           <Button
             flex={1}
-            iconAfter={isLast ? undefined : ChevronRight}
-            onPress={isLast ? handleSubmit : next}
-            disabled={isSaving}
-            opacity={isSaving ? 0.6 : 1}
+            variant="outlined"
+            disabled={step === 0}
+            onPress={() => setStep((s) => s - 1)}
           >
-            {isLast ? (isSaving ? "Sauvegarde..." : "Enregistrer") : "Suivant"}
+            Retour
+          </Button>
+          <Button
+            flex={1}
+            onPress={step === 3 ? handleSubmit : () => setStep((s) => s + 1)}
+          >
+            {step === 3
+              ? initialValues
+                ? "Modifier"
+                : "Sauvegarder"
+              : "Suivant"}
           </Button>
         </XStack>
       </YStack>

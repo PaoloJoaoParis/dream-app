@@ -26,16 +26,6 @@ const TABS = [
     icon: "search-outline" as IoniconName,
     iconFocused: "search" as IoniconName,
   },
-  {
-    name: "stats",
-    icon: "bar-chart-outline" as IoniconName,
-    iconFocused: "bar-chart" as IoniconName,
-  },
-  {
-    name: "settings",
-    icon: "settings-outline" as IoniconName,
-    iconFocused: "settings" as IoniconName,
-  },
 ];
 
 const haptic = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
