@@ -1,224 +1,319 @@
+import type { Dream } from "@/components/dreams/DreamForm";
+import { loadDreams, migrateDream } from "@/components/dreams/dreamStorage";
 import { useFocusEffect } from "@react-navigation/native";
-import { BlurView } from "expo-blur";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, ScrollView, StyleSheet, View } from "react-native";
-import { BarChart, PieChart } from "react-native-gifted-charts";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text } from "tamagui";
+import { useCallback, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { LineChart, BarChart, PieChart } from "react-native-gifted-charts";
+import { Card, H4, Separator, Text, XStack, YStack, useTheme } from "tamagui";
 
-import { getDreams } from "@/components/dreams/data/dreamStorage";
-
-type Dream = {
-  id: string;
-  createdAt: string;
-  type: string;
-  emotion?: string;
-  emotionBefore?: string;
-  emotionAfter?: string;
-  meaning: string;
-  tags: string[];
-  characters: string[];
-  isLucid: boolean;
+type LinePoint = {
+  value: number;
+  dataPointText: string;
 };
 
+type BarPoint = {
+  value: number;
+  label: string;
+  frontColor: string;
+  topLabelComponent?: () => JSX.Element;
+};
 
-const CHART_COLORS = ["#9D7FEA", "#F0A070", "#B89FF5", "#7A738C", "#CCC6E8", "#5A5370"];
-
-function countBy(items: string[]) {
-  const map: Record<string, number> = {};
-
-  items.forEach((item) => {
-    const key = item.trim();
-    if (!key) return;
-    map[key] = (map[key] ?? 0) + 1;
-  });
-
-  return map;
-}
-
-function toTopEntries(map: Record<string, number>, limit = 6) {
-  return Object.entries(map)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit);
-}
-
-function GlassCard({ children, compact = false }: { children: React.ReactNode; compact?: boolean }) {
-  return (
-    <View style={[styles.cardShadow, compact ? styles.miniShadow : null]}>
-      <View style={[styles.cardClip, compact ? styles.miniClip : null]}>
-        <BlurView intensity={40} tint="dark" style={styles.blurAbsolute} />
-        <View style={[styles.cardInner, compact ? styles.miniInner : null]}>{children}</View>
-      </View>
-    </View>
-  );
-}
+type PiePoint = {
+  value: number;
+  color: string;
+  text: string;
+  label: string;
+};
 
 export default function StatsScreen() {
-  const insets = useSafeAreaInsets();
-  const pulse = useRef(new Animated.Value(0.8)).current;
+  const theme = useTheme();
   const [dreams, setDreams] = useState<Dream[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 2800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0.8,
-          duration: 2800,
-          useNativeDriver: true,
-        }),
-      ]),
+  useFocusEffect(
+    useCallback(() => {
+      loadDreams().then((data) => setDreams(data.map(migrateDream)));
+    }, []),
+  );
+
+  const { width: screenWidth } = useWindowDimensions();
+  const chartWidth = screenWidth - 48;
+  const isTablet = screenWidth >= 600;
+
+  const total = dreams.length;
+
+  const lucidCount = dreams.filter((d) => d.isLucid).length;
+  const lucidPct = total ? Math.round((lucidCount / total) * 100) : 0;
+
+  const avgIntensity = total
+    ? Math.round((dreams.reduce((s, d) => s + (d.intensity ?? 3), 0) / total) * 10) / 10
+    : 0;
+
+  const avgDelta = total
+    ? Math.round(
+        (dreams.reduce((s, d) => s + ((d.intensity ?? 3) - (d.sleepQuality ?? 3)), 0) /
+          total) *
+          10,
+      ) / 10
+    : 0;
+
+  const last20 = [...dreams]
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .slice(-20);
+
+  const dataBefore: LinePoint[] = last20.map((d) => ({
+    value: d.sleepQuality ?? 3,
+    dataPointText: "",
+  }));
+
+  const dataAfter: LinePoint[] = last20.map((d) => ({
+    value: d.intensity ?? 3,
+    dataPointText: "",
+  }));
+
+  const emotionCounts = dreams
+    .map((d) => d.emotionAfter)
+    .filter(Boolean)
+    .reduce(
+      (acc, e) => ({ ...acc, [e as string]: ((acc[e as string] as number) ?? 0) + 1 }),
+      {} as Record<string, number>,
     );
-    anim.start();
-    return () => anim.stop();
-  }, [pulse]);
 
-  const loadDreams = useCallback(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const data = (await getDreams()) as Dream[];
-        setDreams(data);
-      } catch {
-        setDreams([]);
-      } finally {
-        setLoading(false);
-      }
-    }
+  const top5emotions: BarPoint[] = Object.entries(emotionCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([label, value], i) => ({
+      value,
+      label: label.length > 7 ? `${label.slice(0, 6)}…` : label,
+      frontColor: `rgba(157,127,234,${1 - i * 0.15})`,
+      topLabelComponent: () => (
+        <Text style={{ color: "#7A738C", fontSize: 10, marginBottom: 2 }}>{value}</Text>
+      ),
+    }));
 
-    load();
-  }, []);
+  const allTags = dreams.flatMap((d) => d.tags ?? []);
+  const tagCounts = allTags.reduce(
+    (acc, t) => ({ ...acc, [t]: (acc[t] ?? 0) + 1 }),
+    {} as Record<string, number>,
+  );
 
-  useFocusEffect(loadDreams);
+  const top5tags: BarPoint[] = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([label, value], i) => ({
+      value,
+      label: label.length > 10 ? `${label.slice(0, 9)}…` : label,
+      frontColor: `rgba(157,127,234,${1 - i * 0.15})`,
+    }));
 
-  const stats = useMemo(() => {
-    const total = dreams.length;
+  const nonLucidCount = dreams.length - lucidCount;
 
-    const emotions = dreams
-      .flatMap((d) => [d.emotion, d.emotionBefore, d.emotionAfter])
-      .filter(Boolean) as string[];
-    const emotionCounts = countBy(emotions);
-    const topEmotions = toTopEntries(emotionCounts, 6);
+  const pieData: PiePoint[] = [
+    { value: lucidCount, color: "#9D7FEA", text: `${lucidPct}%`, label: "Lucides" },
+    {
+      value: nonLucidCount,
+      color: "#F0A070",
+      text: `${100 - lucidPct}%`,
+      label: "Non lucides",
+    },
+  ];
 
-    const types = dreams.map((d) => d.type ?? "");
-    const typeCounts = countBy(types);
-    const topTypes = toTopEntries(typeCounts, 6);
-
-    const tags = dreams.flatMap((d) => d.tags ?? []);
-    const tagCounts = countBy(tags);
-    const topTags = toTopEntries(tagCounts, 5);
-
-    const lucidCount = dreams.filter((d) => d.isLucid).length;
-    const lucidPercent = total === 0 ? 0 : Math.round((lucidCount / total) * 100);
-
-    return {
-      total,
-      lucidCount,
-      lucidPercent,
-      topTags,
-      mostCommonEmotion: topEmotions[0]?.[0] ?? "-",
-      mostCommonType: topTypes[0]?.[0] ?? "-",
-      emotionBarData: topEmotions.map(([label, value], index) => ({
-        value,
-        label: label.length > 8 ? `${label.slice(0, 8)}...` : label,
-        frontColor: CHART_COLORS[index % CHART_COLORS.length],
-      })),
-      typePieData: topTypes.map(([label, value], index) => ({
-        value,
-        text: label,
-        color: CHART_COLORS[index % CHART_COLORS.length],
-      })),
-    };
-  }, [dreams]);
+  const kpiItems = useMemo(
+    () => [
+      { value: `${total}`, label: "Rêves", color: "$color12" },
+      { value: `${lucidPct}%`, label: "Lucides", color: "$color12" },
+      { value: `${avgIntensity}`, label: "Intensité moy.", color: "$color12" },
+      {
+        value: `${avgDelta > 0 ? "+" : ""}${avgDelta}`,
+        label: "Variation émo.",
+        color:
+          avgDelta > 0
+            ? "$green10"
+            : avgDelta < 0
+              ? "$red10"
+              : "$color12",
+      },
+    ],
+    [total, lucidPct, avgIntensity, avgDelta],
+  );
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <Text style={styles.subtitle}>STATISTIQUES</Text>
-          <Text style={styles.title}>Vue d Ensemble</Text>
-        </View>
-
-        {loading ? (
-          <Text style={styles.loadingText}>Chargement...</Text>
-        ) : stats.total === 0 ? (
-          <Text style={styles.loadingText}>Ajoute des reves pour voir les statistiques.</Text>
-        ) : (
-          <>
-            <View style={styles.statsGrid}>
-              <View style={styles.statsCol}>
-                <GlassCard compact>
-                  <Text style={styles.valuePrimary}>{stats.total}</Text>
-                  <Text style={styles.valueLabel}>Reves enregistres</Text>
-                </GlassCard>
-              </View>
-
-              <View style={styles.statsCol}>
-                <GlassCard compact>
-                  <Text style={styles.valueAccent}>{stats.lucidPercent}%</Text>
-                  <Text style={styles.valueLabel}>Lucides</Text>
-                </GlassCard>
-              </View>
+    <View style={[styles.container, { backgroundColor: theme.background?.val }]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Card style={styles.sectionCard}>
+          <Card.Header padded>
+            <H4>KPI</H4>
+          </Card.Header>
+          <Card.Footer padded>
+            <View
+              style={styles.kpiGrid}
+            >
+              {kpiItems.map((item) => (
+                <Card
+                  key={item.label}
+                  style={[styles.kpiItemCard, { width: isTablet ? "23.5%" : "48%" }]}
+                >
+                  <Card.Header padded>
+                    <Text fontSize={26} fontWeight="700" color={item.color as never}>
+                      {item.value}
+                    </Text>
+                    <Text color="$color9">{item.label}</Text>
+                  </Card.Header>
+                </Card>
+              ))}
             </View>
+          </Card.Footer>
+        </Card>
 
-            <GlassCard>
-              <Text style={styles.sectionTitle}>Frequence des emotions</Text>
-              {stats.emotionBarData.length === 0 ? (
-                <Text style={styles.loadingText}>Aucune emotion.</Text>
-              ) : (
-                <BarChart
-                  data={stats.emotionBarData}
-                  barWidth={22}
-                  spacing={20}
-                  noOfSections={4}
-                  yAxisThickness={0}
-                  xAxisThickness={0}
-                  hideRules
-                  isAnimated
-                />
-              )}
-              <Text style={styles.metaText}>Emotion dominante: {stats.mostCommonEmotion}</Text>
-            </GlassCard>
+        <Separator />
 
-            <GlassCard>
-              <Text style={styles.sectionTitle}>Types de reve</Text>
-              {stats.typePieData.length === 0 ? (
-                <Text style={styles.loadingText}>Aucun type.</Text>
-              ) : (
-                <PieChart
-                  data={stats.typePieData}
-                  donut
-                  radius={90}
-                  innerRadius={52}
-                  innerCircleColor="#080810"
-                  centerLabelComponent={() => <Text style={styles.metaText}>Types</Text>}
-                />
-              )}
-              <Text style={styles.metaText}>Type dominant: {stats.mostCommonType}</Text>
-            </GlassCard>
+        <Card style={styles.sectionCard}>
+          <Card.Header padded>
+            <H4>Avant vs Après</H4>
+          </Card.Header>
+          <Card.Footer padded>
+            {last20.length === 0 ? (
+              <Text color="$color9">Aucune donnée.</Text>
+            ) : (
+              <LineChart
+                data={dataBefore}
+                data2={dataAfter}
+                width={chartWidth}
+                height={180}
+                spacing={chartWidth / (last20.length || 1)}
+                color1="#9D7FEA"
+                color2="#F0A070"
+                dataPointsColor1="#9D7FEA"
+                dataPointsColor2="#F0A070"
+                dataPointsRadius={4}
+                thickness1={2}
+                thickness2={2}
+                curved
+                hideDataPoints={last20.length > 10}
+                yAxisTextStyle={{ color: "#7A738C", fontSize: 11 }}
+                xAxisColor="transparent"
+                yAxisColor="transparent"
+                rulesColor="rgba(255,255,255,0.05)"
+                rulesType="solid"
+                maxValue={5}
+                noOfSections={4}
+                backgroundColor="transparent"
+                hideYAxisText={false}
+                showReferenceLine1
+                referenceLine1Position={3}
+                referenceLine1Config={{
+                  color: "rgba(255,255,255,0.08)",
+                  dashWidth: 4,
+                  dashGap: 4,
+                }}
+                legend={[
+                  { label: "Avant sommeil", color: "#9D7FEA" },
+                  { label: "Après rêve", color: "#F0A070" },
+                ]}
+              />
+            )}
+          </Card.Footer>
+        </Card>
 
-            <GlassCard>
-              <Text style={styles.sectionTitle}>Tags frequents</Text>
-              {stats.topTags.length === 0 ? (
-                <Text style={styles.loadingText}>Aucun tag.</Text>
-              ) : (
-                stats.topTags.map(([tag, count]) => (
-                  <Text key={tag} style={styles.metaText}>
-                    {tag}: {count}
-                  </Text>
-                ))
-              )}
-            </GlassCard>
-          </>
-        )}
+        <Separator />
+
+        <Card style={styles.sectionCard}>
+          <Card.Header padded>
+            <H4>Top 5 émotions</H4>
+          </Card.Header>
+          <Card.Footer padded>
+            {top5emotions.length === 0 ? (
+              <Text color="$color9">Aucune donnée.</Text>
+            ) : (
+              <BarChart
+                data={top5emotions}
+                width={chartWidth}
+                height={160}
+                barWidth={Math.min(40, chartWidth / 7)}
+                spacing={chartWidth / (top5emotions.length * 2.5 || 1)}
+                roundedTop
+                hideRules
+                xAxisColor="transparent"
+                yAxisColor="transparent"
+                yAxisTextStyle={{ color: "#7A738C", fontSize: 11 }}
+                xAxisLabelTextStyle={{ color: "#7A738C", fontSize: 11 }}
+                noOfSections={4}
+                backgroundColor="transparent"
+                isAnimated
+              />
+            )}
+          </Card.Footer>
+        </Card>
+
+        <Separator />
+
+        <Card style={styles.sectionCard}>
+          <Card.Header padded>
+            <H4>Top 5 tags</H4>
+          </Card.Header>
+          <Card.Footer padded>
+            {top5tags.length === 0 ? (
+              <Text color="$color9">Aucune donnée.</Text>
+            ) : (
+              <BarChart
+                data={top5tags}
+                width={chartWidth}
+                height={160}
+                horizontal
+                barWidth={18}
+                spacing={10}
+                roundedTop
+                hideRules
+                xAxisColor="transparent"
+                yAxisColor="transparent"
+                yAxisTextStyle={{ color: "#7A738C", fontSize: 11 }}
+                xAxisLabelTextStyle={{ color: "#7A738C", fontSize: 11 }}
+                backgroundColor="transparent"
+                isAnimated
+              />
+            )}
+          </Card.Footer>
+        </Card>
+
+        <Separator />
+
+        <Card style={styles.sectionCard}>
+          <Card.Header padded>
+            <H4>Lucides vs Non lucides</H4>
+          </Card.Header>
+          <Card.Footer padded>
+            <YStack style={styles.pieWrap}>
+              <PieChart
+                data={pieData}
+                donut
+                radius={70}
+                innerRadius={46}
+                innerCircleColor="transparent"
+                centerLabelComponent={() => (
+                  <YStack alignItems="center">
+                    <Text style={{ color: "#EEE8FF", fontSize: 20, fontWeight: "700" }}>
+                      {lucidPct}%
+                    </Text>
+                    <Text style={{ color: "#7A738C", fontSize: 11 }}>lucides</Text>
+                  </YStack>
+                )}
+                textSize={12}
+                textColor="#EEE8FF"
+                isAnimated
+              />
+
+              <XStack style={styles.legendRow}>
+                {pieData.map((item) => (
+                  <XStack key={item.label} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                    <Text color="$color10">
+                      {item.label} ({item.value} rêves)
+                    </Text>
+                  </XStack>
+                ))}
+              </XStack>
+            </YStack>
+          </Card.Footer>
+        </Card>
       </ScrollView>
     </View>
   );
@@ -227,98 +322,40 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#080810",
   },
   content: {
-    paddingHorizontal: 20,
+    padding: 16,
+    paddingBottom: 28,
     gap: 12,
   },
-  header: {
-    marginBottom: 6,
+  sectionCard: {
+    marginBottom: 12,
   },
-  subtitle: {
-    fontSize: 11,
-    color: "#7A738C",
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  title: {
-    letterSpacing: -0.4,
-  },
-  statsGrid: {
+  kpiGrid: {
     flexDirection: "row",
-    marginBottom: 2,
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  kpiItemCard: {
+    flexBasis: "48%",
+    flexGrow: 1,
+  },
+  pieWrap: {
+    alignItems: "center",
+    gap: 12,
+  },
+  legendRow: {
+    flexWrap: "wrap",
+    justifyContent: "center",
     gap: 10,
   },
-  statsCol: {
-    flex: 1,
+  legendItem: {
+    alignItems: "center",
+    gap: 6,
   },
-  cardShadow: {
-    borderRadius: 22,
-    marginBottom: 12,
-    shadowColor: "#9D7FEA",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  miniShadow: {
-    borderRadius: 16,
-  },
-  cardClip: {
-    borderRadius: 22,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(157,127,234,0.18)",
-    borderTopColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.055)",
-  },
-  miniClip: {
-    borderRadius: 16,
-  },
-  blurAbsolute: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  cardInner: {
-    padding: 18,
-  },
-  miniInner: {
-    padding: 14,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    color: "#CCC6E8",
-    lineHeight: 22,
-    marginBottom: 10,
-  },
-  loadingText: {
-    fontSize: 11,
-    color: "#7A738C",
-    fontWeight: "500",
-  },
-  metaText: {
-    fontSize: 11,
-    color: "#7A738C",
-    fontWeight: "500",
-  },
-  valuePrimary: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#9D7FEA",
-  },
-  valueAccent: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#F0A070",
-  },
-  valueLabel: {
-    fontSize: 11,
-    color: "#7A738C",
-    fontWeight: "500",
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
   },
 });

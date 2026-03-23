@@ -26,7 +26,17 @@ const TABS = [
     icon: "search-outline" as IoniconName,
     iconFocused: "search" as IoniconName,
   },
+  {
+    name: "stats",
+    icon: "bar-chart-outline" as IoniconName,
+    iconFocused: "bar-chart" as IoniconName,
+  },
 ];
+
+const FALLBACK_TAB = {
+  icon: "ellipse-outline" as IoniconName,
+  iconFocused: "ellipse" as IoniconName,
+};
 
 const haptic = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -38,7 +48,7 @@ export default function TabLayout() {
       tabBarPosition="bottom"
       screenListeners={{ tabPress: haptic, swipeStart: haptic }}
       screenOptions={({ route }) => {
-        const tab = TABS.find((t) => t.name === route.name)!;
+        const tab = TABS.find((t) => t.name === route.name) ?? FALLBACK_TAB;
         return {
           tabBarShowLabel: false,
           tabBarIndicatorStyle: { height: 0 },
