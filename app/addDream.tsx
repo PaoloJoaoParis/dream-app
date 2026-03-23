@@ -1,27 +1,27 @@
-import DreamForm from "@/components/dreams/DreamForm";
+import { useRouter } from "expo-router";
 import { StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "tamagui";
+import DreamForm, { Dream } from "../components/dreams/DreamForm";
+import { saveDream } from "../components/dreams/dreamStorage";
 
 export default function addDream() {
+  const router = useRouter();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   return (
     <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme.background?.val,
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-        },
-      ]}
+      style={[styles.container, { backgroundColor: theme.background?.val }]}
     >
-      <DreamForm mode="add" />
+      <DreamForm
+        onSubmit={async (dream: Dream) => {
+          await saveDream(dream);
+          router.back();
+        }}
+        onCancel={() => router.back()}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, justifyContent: "center", alignItems: "center" },
 });
